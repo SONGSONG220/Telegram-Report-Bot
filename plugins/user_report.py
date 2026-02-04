@@ -15,7 +15,7 @@ config_path = Path("config.json")
 async def Report_Function(No):
 
     listofchoise = ['Report for child abuse', 'Report for copyrighted content', 'Report for impersonation', 'Report an irrelevant geogroup',
-                    'Report an illegal durg', 'Report for Violence', 'Report for offensive person detail', 'Reason for Pornography', 'Report for spam"']
+                    'Report an illegal durg', 'Report for Violence', 'Report for offensive person detail', 'Reason for Pornography', 'Report for spam']
     message = listofchoise[int(No) - 1]
 
     # Run a shell command and capture its output
@@ -43,7 +43,7 @@ async def Report_Function(No):
         # Print the error message if the command failed
         print("Command failed with error:")
         print(stderr)
-        return f"<b>Something Went Wrong Kindly Check your Inputs Whether You Have Filled Correctly or Not !</b>\n\n <code> {stderr} </code> \n ERROR"
+        return [f"<b>Something Went Wrong Kindly Check your Inputs Whether You Have Filled Correctly or Not !</b>\n\n <code> {stderr.decode('utf-8', 'ignore')} </code> \n ERROR", False]
 
 
 async def CHOICE_OPTION(bot, msg, number):
@@ -66,30 +66,26 @@ async def CHOICE_OPTION(bot, msg, number):
     ms = await bot.send_message(chat_id=msg.chat.id, text=f"**Please Wait**\n\n Have Patience ⏳", reply_to_message_id=msg.id, reply_markup=ReplyKeyboardRemove())
     if str(no_of_reports.text).isnumeric():
 
-        try:
-            i = 0
-            while i < int(no_of_reports.text):
-                result = await Report_Function(number)
+        i = 0
+        while i < int(no_of_reports.text):
+            try:
+                result, success = await Report_Function(number)
+            except Exception as e:
+                print('Error on line {}'.format(
+                    sys.exc_info()[-1].tb_lineno), type(e).__name__, e)
+                await msg.reply_text(text=f"**An unexpected error occurred in Report_Function:\n\n`{e}`**\n\n ERROR !")
+                break # Exit the loop on unexpected error
 
-                if result[1]:
-                    # Assuming output is a bytes object
-                    output_bytes = result[0]
-                    # Decode bytes to string and replace "\r\n" with newlines
-                    output_string = output_bytes.decode(
-                        'utf-8').replace('\r\n', '\n')
-
-                    with open('report.txt', 'a+') as file:
-                        file.write(output_string)
-
-                    i += 1
-                    continue
-
-                else:
-                    await bot.send_message(chat_id=msg.chat.id, text=f"{result}", reply_to_message_id=msg.id)
-        except Exception as e:
-            print('Error on line {}'.format(
-                sys.exc_info()[-1].tb_lineno), type(e).__name__, e)
-            return await msg.reply_text(text=f"**{e}**\n\n ERROR !")
+            if success:
+                # result is stdout (bytes)
+                output_string = result.decode('utf-8').replace('\r\n', '\n')
+                with open('report.txt', 'a+') as file:
+                    file.write(output_string + "\n")
+                i += 1
+            else:
+                # result is an error message (string)
+                await bot.send_message(chat_id=msg.chat.id, text=result, reply_to_message_id=msg.id)
+                break # Stop reporting if one fails
 
     else:
         await msg.reply_text(text='**Please Enter Valid Integer Number !**\n\n Try Again :- /report')
