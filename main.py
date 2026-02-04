@@ -1,7 +1,5 @@
-from pyrogram import (
-    Client,
-    __version__
-)
+from pyromod import Client
+from pyrogram import __version__
 from pyrogram.raw.all import layer
 from info import Config
 import logging
@@ -9,13 +7,17 @@ from datetime import datetime
 import logging.config, os
 from pytz import timezone
 from aiohttp import web
-from plugins import web_server
 import pyromod
 
 logging.config.fileConfig('logging.conf')
 logging.getLogger().setLevel(logging.INFO)
 logging.getLogger("pyrogram").setLevel(logging.ERROR)
 
+
+async def web_server():
+    web_app = web.Application(client_max_size=30000000)
+    web_app.add_routes([web.get("/", lambda r: web.Response(text="Hello"))])
+    return web_app
 
 
 class Bot (Client):
