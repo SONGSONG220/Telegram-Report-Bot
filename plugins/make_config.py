@@ -67,11 +67,9 @@ async def make_config(bot: Client, msg: Message):
                     await bot.send_message(msg.from_user.id, "Error!!\n\nRequest timed out.\nRestart by using /make_config", reply_to_message_id=msg.id)
                     return
 
-                if config_path.exists():
-
-                    for acocunt in config['accounts']:
-                        if acocunt['Session_String'] == session.text:
-                            return await msg.reply_text(text=f"**{acocunt['OwnerName']} account already exist in config you can't add same account multiple times 🤡**\n\n Error !")
+                for acocunt in config['accounts']:
+                    if acocunt['Session_String'] == session.text:
+                        return await msg.reply_text(text=f"**{acocunt['OwnerName']} account already exist in config you can't add same account multiple times 🤡**\n\n Error !")
 
                 # Run a shell command and capture its output
                 try:
