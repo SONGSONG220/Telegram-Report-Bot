@@ -21,7 +21,7 @@
 
 ## Deploy To Render              
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/StarkFRG/Telegram-Report-Bot/tree/master)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/SONGSONG220/Telegram-Report-Bot)
 
 ## Deploy To Railway
 
