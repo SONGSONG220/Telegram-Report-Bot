@@ -3,13 +3,13 @@ import time
 
 class Config(object):
     # Pyrogram Client
-    API_ID    = int(os.environ.get("API_ID", "20394525"))  # ⚠️ Required
-    API_HASH  = os.environ.get("API_HASH", "6e84bd0f4362b85dab38ede07245b16d") # ⚠️ Required
-    BOT_TOKEN = os.environ.get("BOT_TOKEN", "8379813954:AAEHfnxEIbSyHEco-WkqzPAAKeapB5tPaVA") # ⚠️ Required
+    API_ID    = int(os.environ.get("API_ID", "37096542"))  # ⚠️ Required
+    API_HASH  = os.environ.get("API_HASH", "e87f06819f9d2b3364502b978650568f") # ⚠️ Required
+    BOT_TOKEN = os.environ.get("BOT_TOKEN", "8765470261:AAEJnwvrHu5SlaIUmSrRMiyCm9wWv4mxEck") # ⚠️ Required
     
     # Other Configs
     BOT_START_TIME = time.time()
-    OWNER = int(os.environ.get OWNER = [7812646657, 8639592397]
+    OWNER = [7812646657, 8639592397]
  # ⚠️ Required
 
     # Web Response Config
@@ -97,7 +97,7 @@ Hɪ {},
 
 Tʜɪs Bᴏᴛ ɪs ғᴏʀ ᴛᴏ ʀᴇᴘᴏʀᴛ ᴄʜᴀɴɴᴇʟ ᴏʀ ɢʀᴏᴜᴘ ɪɴ ᴍᴀss ʟᴇᴠᴇʟ ᴛʜʀᴏᴜɢʜ ᴛᴇʟᴇɢʀᴀᴍ ᴀᴄᴄᴏᴜɴᴛ sᴇssɪᴏɴ sᴛʀɪɴɢ ᴡʜɪᴄʜ ʏᴏᴜ ᴄᴀɴ ɢᴇɴᴇʀᴀᴛᴇ ʙʏ @SessionxGenBot.
 
-Tʜɪs ʙᴏᴛ ɪs sᴏʟᴇʟʏ ᴄʀᴇᴀᴛᴇ ᴏʀ ᴅᴇᴠᴇʟᴏᴘᴇᴅ ʙʏ :- @urstarkz
+Tʜɪs ʙᴏᴛ ɪs sᴏʟᴇʟʏ ᴄʀᴇᴀᴛᴇ ᴏʀ ᴅᴇᴠᴇʟᴏᴘᴇᴅ ʙʏ :- @usernametnot
 """
 
     HELP_MSG = """
@@ -125,7 +125,7 @@ Tʜɪs ʙᴏᴛ ɪs sᴏʟᴇʟʏ ᴄʀᴇᴀᴛᴇ ᴏʀ ᴅᴇᴠᴇʟᴏᴘ�
 
     ABOUT_MSG = """
 - 𝖬𝗒 𝖭𝖺𝗆𝖾 : <a href=https://t.me/{}>{}</a>
-- 𝖢𝗋𝖾𝖺𝗍𝗈𝗋 : <a href=https://t.me/urstarkz>STARK</a>
+- 𝖢𝗋𝖾𝖺𝗍𝗈𝗋 : <a href=https://t.me/usernametnot>STARK</a>
 - 𝖫𝗂𝖻𝗋𝖺𝗋𝗒 : Pyrogram
 - 𝖫𝖺𝗇𝗀𝗎𝖺𝗀𝖾 : 𝖯𝗒𝗍𝗁𝗈𝗇 𝟥
 - 𝖣𝖺𝗍𝖺𝖡𝖺𝗌𝖾 : 𝖬𝗈𝗇𝗀𝗈𝖣𝖡
