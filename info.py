@@ -32,7 +32,7 @@ class Txt(object):
     SEND_SESSION_MSG = """
 ❪ SEND SESSOIN STRING ❫
 
-☛ Generate Session String form @SessionxGenBot
+☛ Generate Session String form telegram.tools
 
 
 """
