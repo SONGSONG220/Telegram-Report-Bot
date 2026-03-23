@@ -9,16 +9,15 @@ from pytz import timezone
 from aiohttp import web
 import pyromod
 
+# Logging setup
 logging.config.fileConfig('logging.conf')
 logging.getLogger().setLevel(logging.INFO)
 logging.getLogger("pyrogram").setLevel(logging.ERROR)
-
 
 async def web_server():
     web_app = web.Application(client_max_size=30000000)
     web_app.add_routes([web.get("/", lambda r: web.Response(text="Hello"))])
     return web_app
-
 
 class Bot (Client):
 
@@ -41,16 +40,21 @@ class Bot (Client):
         await app.setup()
         bind_address = "0.0.0.0"
         await web.TCPSite(app, bind_address, Config.PORT).start()
-        logging.info(f"✅ {me.first_name} with for Pyrogram v{__version__} (Layer {layer}) started on {me.username}. ✅")
+        logging.info(f"✅ {me.first_name} started on {me.username}. ✅")
 
+        # FIX: Multiple Owners ko message bhejne ka sahi tarika
+        if isinstance(Config.OWNER, list):
+            for admin_id in Config.OWNER:
+                try:
+                    await self.send_message(admin_id, f"**__{me.first_name} Iꜱ Sᴛᴀʀᴛᴇᴅ.....✨️__**")
+                except Exception as e:
+                    logging.warning(f"Could not send message to {admin_id}: {e}")
+        else:
+            await self.send_message(Config.OWNER, f"**__{me.first_name} Iꜱ Sᴛᴀʀᴛᴇᴅ.....✨️__**")
 
-        await self.send_message(Config.OWNER, f"**__{me.first_name}  Iꜱ Sᴛᴀʀᴛᴇᴅ.....✨️__**")
-
-        
     async def stop(self, *args):
         await super().stop()
         logging.info("Bot Stopped ⛔")
-
 
 bot = Bot()
 bot.run()
