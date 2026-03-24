@@ -9,7 +9,7 @@ class Config(object):
     
     # Other Configs
     BOT_START_TIME = time.time()
-    OWNER = [7812646657, 8639592397]
+    OWNER = [7812646657, 8639592397, 7812646657]
  # ⚠️ Required
 
     # Web Response Config
