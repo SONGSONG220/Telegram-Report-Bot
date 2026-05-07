@@ -8,20 +8,23 @@ from pyrogram.types import Message, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from pyrogram.errors import MessageIdInvalid
 from info import Config, Txt
 
-
 config_path = Path("config.json")
 
-
-async def Report_Function(No):
-
+# ==========================================
+# 1. REPORT FUNCTION (Ab Crime Details ke sath)
+# ==========================================
+async def Report_Function(No, crime_details):
     listofchoise = ['Report for child abuse', 'Report for copyrighted content', 'Report for impersonation', 'Report an irrelevant geogroup',
                     'Report an illegal durg', 'Report for Violence', 'Report for offensive person detail', 'Reason for Pornography', 'Report for spam']
-    message = listofchoise[int(No) - 1]
+    
+    reason = listofchoise[int(No) - 1]
+
+    # Reason aur Crime Detail dono ko ek sath jod rahe hain
+    full_message = f"{reason}\n\nEvidence/Details:\n{crime_details}"
 
     # Run a shell command and capture its output
     process = subprocess.Popen(
-        ["python", f"report.py",
-            f"{message}"],
+        ["python", f"report.py", f"{full_message}"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -34,18 +37,17 @@ async def Report_Function(No):
 
     # Check the return code to see if the command was successful
     if return_code == 0:
-        # Print the output of the command
         print("Command output:")
         print(stdout)
         return [stdout, True]
-
     else:
-        # Print the error message if the command failed
         print("Command failed with error:")
         print(stderr)
         return [f"<b>Something Went Wrong Kindly Check your Inputs Whether You Have Filled Correctly or Not !</b>\n\n <code> {stderr.decode('utf-8', 'ignore')} </code> \n ERROR", False]
 
-
+# ==========================================
+# 2. CHOICE OPTION (Crime Details poochne ka logic)
+# ==========================================
 async def CHOICE_OPTION(bot, msg, number):
 
     if not config_path.exists():
@@ -58,34 +60,42 @@ async def CHOICE_OPTION(bot, msg, number):
         if Path('report.txt').exists():
             return await msg.reply_text(text="**Already One Process is Ongoing Please Wait Until it's Finished ⏳**", reply_to_message_id=msg.id)
 
+        # Kitni reports karni hain, yeh poochta hai
         no_of_reports = await bot.ask(text=Txt.SEND_NO_OF_REPORT_MSG.format(config['Target']), chat_id=msg.chat.id, filters=filters.text, timeout=30, reply_markup=ReplyKeyboardRemove())
+        
+        # Crime Details/Proof mangta hai
+        crime_msg = await bot.ask(
+            text="🚨 **Please provide the Crime Details / Evidence / Message Link:**\n\n*(Yeh detail Telegram ki moderation team ko report ke sath dikhegi)*",
+            chat_id=msg.chat.id, 
+            filters=filters.text, 
+            timeout=60
+        )
+
     except:
         await bot.send_message(msg.from_user.id, "Error!!\n\nRequest timed out.\nRestart by using /report")
         return
 
     ms = await bot.send_message(chat_id=msg.chat.id, text=f"**Please Wait**\n\n Have Patience ⏳", reply_to_message_id=msg.id, reply_markup=ReplyKeyboardRemove())
+    
     if str(no_of_reports.text).isnumeric():
-
         i = 0
         while i < int(no_of_reports.text):
             try:
-                result, success = await Report_Function(number)
+                # Naye function ko call kar rahe hain crime_msg ke sath
+                result, success = await Report_Function(number, crime_msg.text)
             except Exception as e:
-                print('Error on line {}'.format(
-                    sys.exc_info()[-1].tb_lineno), type(e).__name__, e)
+                print('Error on line {}'.format(sys.exc_info()[-1].tb_lineno), type(e).__name__, e)
                 await msg.reply_text(text=f"**An unexpected error occurred in Report_Function:\n\n`{e}`**\n\n ERROR !")
-                break # Exit the loop on unexpected error
+                break
 
             if success:
-                # result is stdout (bytes)
                 output_string = result.decode('utf-8').replace('\r\n', '\n')
                 with open('report.txt', 'a+') as file:
                     file.write(output_string + "\n")
                 i += 1
             else:
-                # result is an error message (string)
                 await bot.send_message(chat_id=msg.chat.id, text=result, reply_to_message_id=msg.id)
-                break # Stop reporting if one fails
+                break 
 
     else:
         await msg.reply_text(text='**Please Enter Valid Integer Number !**\n\n Try Again :- /report')
@@ -93,65 +103,58 @@ async def CHOICE_OPTION(bot, msg, number):
 
     await ms.delete()
     await msg.reply_text(text=f"Bot Successfully Reported To @{config['Target']} ✅\n\n{no_of_reports.text} Times")
+    
     file = open('report.txt', 'a')
-    file.write(
-        f"\n\n@{config['Target']} Channel or Group is Reported {no_of_reports.text} Times ✅")
+    file.write(f"\n\n@{config['Target']} Channel or Group is Reported {no_of_reports.text} Times ✅")
     file.close()
+    
     await bot.send_document(chat_id=msg.chat.id, document='report.txt', reply_to_message_id=msg.id)
     os.remove('report.txt')
 
 
+# ==========================================
+# 3. COMMANDS & BUTTON HANDLERS
+# ==========================================
 @Client.on_message(filters.private & filters.user(Config.OWNER) & filters.command('report'))
 async def handle_report(bot: Client, cmd: Message):
-
     CHOICE = [
         [("1"), ("2")], [("3"), ("4")], [("5"), ("6")], [("7"), ("8")], [("9")]
     ]
-
     await bot.send_message(chat_id=cmd.from_user.id, text=Txt.REPORT_CHOICE, reply_to_message_id=cmd.id, reply_markup=ReplyKeyboardMarkup(CHOICE, resize_keyboard=True))
-
 
 @Client.on_message(filters.regex("1"))
 async def one(bot: Client, msg: Message):
-
     await CHOICE_OPTION(bot, msg, 1)
-
 
 @Client.on_message(filters.regex("2"))
 async def two(bot: Client, msg: Message):
     await CHOICE_OPTION(bot, msg, 2)
 
-
 @Client.on_message(filters.regex("3"))
 async def three(bot: Client, msg: Message):
     await CHOICE_OPTION(bot, msg, 3)
-
 
 @Client.on_message(filters.regex("4"))
 async def four(bot: Client, msg: Message):
     await CHOICE_OPTION(bot, msg, 4)
 
-
 @Client.on_message(filters.regex("5"))
 async def five(bot: Client, msg: Message):
     await CHOICE_OPTION(bot, msg, 5)
-
 
 @Client.on_message(filters.regex("6"))
 async def six(bot: Client, msg: Message):
     await CHOICE_OPTION(bot, msg, 6)
 
-
 @Client.on_message(filters.regex("7"))
 async def seven(bot: Client, msg: Message):
     await CHOICE_OPTION(bot, msg, 7)
-
 
 @Client.on_message(filters.regex("8"))
 async def eight(bot: Client, msg: Message):
     await CHOICE_OPTION(bot, msg, 8)
 
-
 @Client.on_message(filters.regex("9"))
 async def nine(bot: Client, msg: Message):
     await CHOICE_OPTION(bot, msg, 9)
+            
