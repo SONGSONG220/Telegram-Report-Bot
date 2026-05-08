@@ -1,115 +1,120 @@
 import sys
-from pyrogram import Client, filters
 import asyncio
 import json
+import logging
+from pyrogram import Client
 from pyrogram.raw.functions.account import ReportPeer
 from pyrogram.raw.types import *
 
+# --- LOGGING SETUP ---
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
+# --- REASON MAPPING ---
 def get_reason(text):
-    if text == "Report for child abuse":
-        return InputReportReasonChildAbuse()
-    elif text == "Report for impersonation":
-        return InputReportReasonFake()
-    elif text == "Report for copyrighted content":
-        return InputReportReasonCopyright()
-    elif text == "Report an irrelevant geogroup":
-        return InputReportReasonGeoIrrelevant()
-    elif text == "Reason for Pornography":
-        return InputReportReasonPornography()
-    elif text == "Report an illegal durg":
-        return InputReportReasonIllegalDrugs()
-    elif text == "Report for offensive person detail":
-        return InputReportReasonPersonalDetails()
-    elif text == "Report for spam":
-        return InputReportReasonSpam()
-    elif text == "Report for Violence":
-        return InputReportReasonViolence()
-    else:
-        return None
+    """
+    Yeh function English text ko Telegram ke RAW API format mein badalta hai.
+    """
+    reasons = {
+        "Report for child abuse": InputReportReasonChildAbuse(),
+        "Report for impersonation": InputReportReasonFake(),
+        "Report for copyrighted content": InputReportReasonCopyright(),
+        "Report an irrelevant geogroup": InputReportReasonGeoIrrelevant(),
+        "Reason for Pornography": InputReportReasonPornography(),
+        "Report an illegal durg": InputReportReasonIllegalDrugs(),
+        "Report for offensive person detail": InputReportReasonPersonalDetails(),
+        "Report for spam": InputReportReasonSpam(),
+        "Report for Violence": InputReportReasonViolence()
+    }
+    return reasons.get(text)
 
-
-async def main(reason_text):
+# --- MAIN ENGINE ---
+async def main(full_input):
+    """
+    Yeh function har account se login karke target ko strike karega.
+    """
+    # 1. Config file load karna
     try:
-        config = json.load(open("config.json"))
-    except FileNotFoundError:
-        print("Error: config.json not found!")
-        return
-    except json.JSONDecodeError:
-        print("Error: Invalid JSON in config.json!")
+        with open("config.json", "r", encoding="utf-8") as f:
+            config = json.load(f)
+    except Exception as e:
+        print(f"Fatal Error: Config file nahi mili ya kharab hai! ({e})")
         return
 
-    resportreason = get_reason(reason_text)
-    if resportreason is None:
-        print(f"Error: Invalid reason provided: {reason_text}")
+    # 2. Input String ko Todna (Reason vs Evidence)
+    if "\n\nEvidence/Details:\n" in full_input:
+        reason_text, crime_details = full_input.split("\n\nEvidence/Details:\n", 1)
+    else:
+        reason_text = full_input
+        crime_details = "Manual report filed via automated system."
+
+    # 3. Reason Check
+    report_reason = get_reason(reason_text)
+    if not report_reason:
+        print(f"Error: Invalid Reason Provided -> {reason_text}")
         return
 
     target = config.get('Target')
-    if not target:
-        print("Error: 'Target' not specified in config.json")
-        return
-
     accounts = config.get("accounts", [])
+
     if not accounts:
-        print("Error: No accounts found in config.json")
+        print("Error: Config mein koi accounts nahi mile!")
         return
 
+    print(f"Starting Reports on: @{target}")
+    print(f"Reason: {reason_text}")
+
+    # 4. Accounts Loop (Har account se strike)
     for account in accounts:
-        string = account.get("Session_String")
-        Name = account.get('OwnerName', 'Unknown')
-        
-        if not string:
-            print(f"Error: No Session_String for account {Name}")
+        session = account.get("Session_String")
+        name = account.get('OwnerName', 'User')
+
+        if not session:
+            print(f"Skipping {name}: No Session String found.")
             continue
-        
-        async with Client(name="Session", session_string=string) as app:
+
+        # in_memory=True taaki Pydroid ya Hosting par faltu .session files na bane
+        async with Client(name="ReportSession", session_string=session, in_memory=True, device_model="ReportBotV2") as app:
             try:
+                # Target ki ID aur Access Hash nikalna
                 peer = await app.resolve_peer(target)
                 
-                # Handle different peer types
+                # Peer Type Identify karna (Channel, User, ya Chat)
                 if hasattr(peer, 'channel_id'):
-                    input_peer = InputPeerChannel(
-                        channel_id=peer.channel_id,
-                        access_hash=peer.access_hash
-                    )
+                    input_peer = InputPeerChannel(channel_id=peer.channel_id, access_hash=peer.access_hash)
                 elif hasattr(peer, 'user_id'):
-                    input_peer = InputPeerUser(
-                        user_id=peer.user_id,
-                        access_hash=peer.access_hash
-                    )
+                    input_peer = InputPeerUser(user_id=peer.user_id, access_hash=peer.access_hash)
                 elif hasattr(peer, 'chat_id'):
                     input_peer = InputPeerChat(chat_id=peer.chat_id)
                 else:
-                    print(f"Error: Unknown peer type for {target}")
+                    print(f"Unknown Peer Type for {target}")
                     continue
-                
-                report_peer = ReportPeer(
-                    peer=input_peer,
-                    reason=resportreason,
-                    message=reason_text
+
+                # --- THE STRIKE ---
+                # Crime details 'message' parameter mein jayengi jo Telegram Admin dekhega
+                await app.invoke(
+                    ReportPeer(
+                        peer=input_peer, 
+                        reason=report_reason, 
+                        message=crime_details
+                    )
                 )
+                print(f"✅ Success: Reported by {name}")
                 
-                result = await app.invoke(report_peer)
-                print(f"Successfully Reported by Account: {Name}")
-                 
+                # Rate limit se bachne ke liye chhota sa gap
+                await asyncio.sleep(1)
+
             except Exception as e:
-                print(f"Error for account {Name}: {e}")
-                print(f"Failed to report from: {Name}")
-                
+                print(f"❌ Failed for {name}: {str(e)}")
+
+# --- ENTRY POINT ---
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python report.py <reason>")
-        print("Available reasons:")
-        print("  - Report for child abuse")
-        print("  - Report for impersonation")
-        print("  - Report for copyrighted content")
-        print("  - Report an irrelevant geogroup")
-        print("  - Reason for Pornography")
-        print("  - Report an illegal durg")
-        print("  - Report for offensive person detail")
-        print("  - Report for spam")
-        print("  - Report for Violence")
+    # Check karna ki argument bhej gaya hai ya nahi
+    if len(sys.argv) < 2:
+        print("Usage: python report.py <combined_reason_and_details>")
         sys.exit(1)
 
-    input_string = sys.argv[1]
-    asyncio.run(main(input_string))
+    # Pura input uthana (Spaces ke sath)
+    combined_input = sys.argv[1]
+    asyncio.run(main(combined_input))
+    
