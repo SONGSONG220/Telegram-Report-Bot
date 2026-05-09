@@ -11,7 +11,7 @@ from info import Config, Txt
 
 config_path = Path("config.json")
 
-# Crime message templates user select kar sakta hai
+# Crime message templates
 CRIME_MESSAGES = {
     "1": "This account is spreading spam and scam links in multiple groups.",
     "2": "This account is impersonating a legitimate person or brand.",
@@ -25,8 +25,13 @@ CRIME_MESSAGES = {
 }
 
 
-async def Report_Round(reason_number, crime_message):
-    """Ek round me saare accounts se report with custom crime message"""
+async def Report_Round(reason_number, crime_message, bot, chat_id, status_msg):
+    """Ek round me saare accounts se report with live Telegram status update"""
+    
+    # 🛑 STOP CHECK
+    if Path('stop.txt').exists():
+        print("🛑 Stop signal detected! Skipping this round.")
+        return ["🛑 Stopped by user", False]
     
     listofchoise = [
         'Report for child abuse', 'Report for copyrighted content', 
@@ -35,33 +40,81 @@ async def Report_Round(reason_number, crime_message):
         'Report for offensive person detail', 'Reason for Pornography', 
         'Report for spam'
     ]
-    message = listofchoise[int(reason_number) - 1]
+    message_text = listofchoise[int(reason_number) - 1]
 
-    print(f"🚀 Starting report round | Reason: {message} | Crime: {crime_message[:50]}...")
+    print(f"🚀 Starting report round | Reason: {message_text} | Crime: {crime_message[:50]}...")
     
-    # Report script ko crime message ke saath call karo
+    # Update live status
+    await status_msg.edit_text(
+        text=f"**⏳ Reporting in Progress...**\n\n"
+             f"📤 Launching report script...\n"
+             f"📝 Crime: {crime_message[:40]}...\n"
+             f"⏱️ Please wait..."
+    )
+    
+    # Run script with live output capture
     process = subprocess.Popen(
-        ["python", "report.py", message, crime_message],
+        ["python", "report.py", message_text, crime_message],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        text=True
+        text=True,
+        bufsize=1  # Line buffered for live output
     )
 
-    stdout, stderr = process.communicate()
+    # Read output line by line for live updates
+    stdout_lines = []
+    current_account = ""
+    current_status = ""
+    
+    while True:
+        line = process.stdout.readline()
+        if not line and process.poll() is not None:
+            break
+        if line:
+            line = line.strip()
+            stdout_lines.append(line)
+            print(f"📺 {line}")  # Console pe live dikhega
+            
+            # Extract account name and status for Telegram update
+            if "Connected" in line:
+                current_account = line.split(":")[0] if ":" in line else ""
+                await status_msg.edit_text(
+                    text=f"**⏳ Reporting...**\n\n"
+                         f"🔄 {current_account}\n"
+                         f"🔗 Connected to target ✅\n"
+                         f"📤 Sending report..."
+                )
+            elif "SENDING" in line or "sending" in line.lower():
+                await status_msg.edit_text(
+                    text=f"**⏳ Reporting...**\n\n"
+                         f"🔄 {current_account}\n"
+                         f"📤 Sending report to Telegram..."
+                )
+            elif "SENT SUCCESSFULLY" in line or "sent successfully" in line.lower():
+                await status_msg.edit_text(
+                    text=f"**⏳ Reporting...**\n\n"
+                         f"🔄 {current_account}\n"
+                         f"✅ Report sent successfully!\n"
+                         f"📝 Crime: {crime_message[:40]}...\n"
+                         f"⏱️ Waiting 10 seconds..."
+                )
+    
+    stderr = process.stderr.read()
     return_code = process.wait()
 
-    print(stdout)
     if stderr:
         print(f"STDERR: {stderr}")
 
+    stdout_full = "\n".join(stdout_lines)
+    
     if return_code == 0:
-        return [stdout, True]
+        return [stdout_full, True]
     else:
         return [f"<b>Error Occurred!</b>\n\n<code>{stderr}</code>", False]
 
 
 async def CHOICE_OPTION(bot, msg, number):
-    """5 accounts se auto-report with crime message"""
+    """5 accounts se auto-report with live status on Telegram"""
 
     if not config_path.exists():
         return await msg.reply_text(
@@ -74,37 +127,29 @@ async def CHOICE_OPTION(bot, msg, number):
         config = json.load(file)
 
     accounts = config.get("accounts", [])
-    if len(accounts) < 5:
+    if len(accounts) < 1:
         return await msg.reply_text(
-            text="**⚠️ Kam se kam 5 accounts config mein hone chahiye!**\n\nUse /make_config to add accounts.",
+            text="**⚠️ Kam se kam 1 account config mein hona chahiye!**",
             reply_to_message_id=msg.id
         )
 
-    # Check if already running
+    # 🛑 Purana stop.txt hatao
+    if Path('stop.txt').exists():
+        os.remove('stop.txt')
+
     if Path('report.txt').exists():
         return await msg.reply_text(
-            text="**⚠️ Already One Process is Ongoing Please Wait Until it's Finished ⏳**",
+            text="**⚠️ Already One Process is Ongoing Please Wait ⏳**",
             reply_to_message_id=msg.id
         )
 
     try:
-        # Pehle crime message poocho
         crime_ask = await bot.ask(
-            text="**📝 Crime Message likhein jo Telegram ko bhejna hai:**\n\n"
-                 "Jaise:\n"
-                 "• `This account is spreading scams and fraud`\n"
-                 "• `This account is impersonating and doing illegal activities`\n"
-                 "• `This account is sharing spam and fake links`\n\n"
-                 "Ya aap directly number dal sakte ho template ke liye:\n"
-                 "`1` - Spam/Scam\n"
-                 "`2` - Impersonation\n"
-                 "`3` - Copyright violation\n"
-                 "`4` - Financial fraud\n"
-                 "`5` - Violence\n"
-                 "`6` - Child abuse\n"
-                 "`7` - Pornography\n"
-                 "`8` - Illegal drugs\n"
-                 "`9` - Personal details leak",
+            text="**📝 Crime Message likhein:**\n\n"
+                 "Custom likho ya template number:\n"
+                 "`1` - Spam/Scam\n`2` - Impersonation\n`3` - Copyright\n"
+                 "`4` - Financial fraud\n`5` - Violence\n`6` - Child abuse\n"
+                 "`7` - Pornography\n`8` - Illegal drugs\n`9` - Personal details",
             chat_id=msg.chat.id,
             filters=filters.text,
             timeout=120,
@@ -114,20 +159,13 @@ async def CHOICE_OPTION(bot, msg, number):
         await bot.send_message(msg.from_user.id, "Error!!\n\nRequest timed out.\nRestart by using /report")
         return
 
-    # Check if user gave number (template) or custom message
     crime_text = crime_ask.text.strip()
     if crime_text.isnumeric() and crime_text in CRIME_MESSAGES:
         crime_message = CRIME_MESSAGES[crime_text]
-        await bot.send_message(
-            chat_id=msg.chat.id,
-            text=f"✅ Template selected: `{crime_message[:60]}...`"
-        )
+        await bot.send_message(chat_id=msg.chat.id, text=f"✅ Template selected: `{crime_message[:60]}...`")
     else:
         crime_message = crime_text
-        await bot.send_message(
-            chat_id=msg.chat.id,
-            text=f"✅ Custom crime message set: `{crime_message[:60]}...`"
-        )
+        await bot.send_message(chat_id=msg.chat.id, text=f"✅ Custom crime message set")
 
     try:
         no_of_reports = await bot.ask(
@@ -141,16 +179,11 @@ async def CHOICE_OPTION(bot, msg, number):
         await bot.send_message(msg.from_user.id, "Error!!\n\nRequest timed out.\nRestart by using /report")
         return
 
-    ms = await bot.send_message(
+    # Create live status message that will be updated
+    status_msg = await bot.send_message(
         chat_id=msg.chat.id,
-        text=f"**⏳ Reporting in Progress...**\n\n"
-             f"🎯 Target: @{config['Target']}\n"
-             f"📝 Crime: {crime_message[:50]}...\n"
-             f"👤 Accounts: {len(accounts)}\n"
-             f"⏱️ Delay: 10 sec\n"
-             f"🔄 Please wait...",
-        reply_to_message_id=msg.id,
-        reply_markup=ReplyKeyboardRemove()
+        text=f"**⏳ Starting Report Session...**",
+        reply_to_message_id=msg.id
     )
     
     if not str(no_of_reports.text).isnumeric():
@@ -159,82 +192,107 @@ async def CHOICE_OPTION(bot, msg, number):
 
     reports_count = int(no_of_reports.text)
     
-    max_allowed = 15
-    if reports_count > max_allowed:
-        await bot.send_message(
-            chat_id=msg.chat.id,
-            text=f"**⚠️ Maximum {max_allowed} reports allowed. {reports_count} ki jagah {max_allowed} set kiya.**"
-        )
-        reports_count = max_allowed
-
-    total_reports = 0
     total_success = 0
     total_failed = 0
-    
-    rounds_needed = (reports_count + 4) // 5
+    accounts_count = len(accounts)
+    rounds_needed = (reports_count + accounts_count - 1) // accounts_count
     
     with open('report.txt', 'a') as log_file:
         log_file.write(f"=== Report Session Started at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
         log_file.write(f"Target: @{config['Target']} | Reason: {number} | Crime: {crime_message}\n")
-        log_file.write(f"Accounts: {len(accounts)} | Max Reports: {reports_count}\n\n")
+        log_file.write(f"Accounts: {accounts_count} | Total Reports: {reports_count}\n\n")
 
     for round_num in range(rounds_needed):
+        # 🛑 STOP CHECK
+        if Path('stop.txt').exists():
+            await status_msg.edit_text(
+                text=f"**🛑 STOPPED BY USER!**\n\n"
+                     f"✅ Success: {total_success}\n"
+                     f"❌ Failed: {total_failed}\n"
+                     f"🛑 Stopped at Round {round_num + 1}"
+            )
+            print("🛑 User requested stop.")
+            with open('report.txt', 'a') as log_file:
+                log_file.write(f"\n=== STOPPED BY USER at Round {round_num + 1} ===\n")
+            break
+            
         remaining = reports_count - total_success
         if remaining <= 0:
             break
             
-        await ms.edit_text(
-            text=f"**⏳ Reporting in Progress...**\n\n"
+        # Live Telegram status
+        await status_msg.edit_text(
+            text=f"**⏳ Round {round_num + 1}/{rounds_needed}**\n\n"
                  f"🎯 Target: @{config['Target']}\n"
-                 f"📝 Crime: {crime_message[:40]}...\n"
-                 f"🔄 Round: {round_num + 1}/{rounds_needed}\n"
+                 f"📝 Crime: {crime_message[:35]}...\n"
                  f"✅ Success: {total_success}\n"
                  f"❌ Failed: {total_failed}\n"
-                 f"⏱️ Delay: 10 sec"
+                 f"⏱️ Delay: 10 sec\n"
+                 f"🛑 /stop to cancel"
         )
 
         print(f"\n{'='*50}")
-        print(f"📢 Round {round_num + 1}/{rounds_needed} | Crime: {crime_message}")
+        print(f"📢 Round {round_num + 1}/{rounds_needed} | Remaining: {remaining}")
         print(f"{'='*50}")
         
-        result, success = await Report_Round(number, crime_message)
+        if Path('stop.txt').exists():
+            break
+            
+        result, success = await Report_Round(number, crime_message, bot, msg.chat.id, status_msg)
         
         if success:
             with open('report.txt', 'a') as log_file:
                 log_file.write(f"--- Round {round_num + 1} ---\n")
                 log_file.write(result + "\n")
             
-            total_success += min(5, remaining if remaining < 5 else 5)
-            total_reports += min(5, remaining if remaining < 5 else 5)
+            reports_this_round = min(accounts_count, remaining)
+            total_success += reports_this_round
         else:
             with open('report.txt', 'a') as log_file:
                 log_file.write(f"--- Round {round_num + 1} FAILED ---\n")
                 log_file.write(result + "\n")
-            total_failed += 5
+            total_failed += accounts_count
 
-        # 10 sec delay between rounds
+        # Live update after round
+        await status_msg.edit_text(
+            text=f"**⏳ Round {round_num + 1} Complete**\n\n"
+                 f"🎯 Target: @{config['Target']}\n"
+                 f"✅ Success: {total_success}\n"
+                 f"❌ Failed: {total_failed}\n"
+                 f"⏱️ Next round in 10 sec..."
+        )
+
+        if Path('stop.txt').exists():
+            break
+
         if round_num < rounds_needed - 1 and total_success + total_failed < reports_count:
             print(f"⏳ 10 second delay before next round...")
-            await asyncio.sleep(10)
+            for sec in range(10, 0, -1):
+                if Path('stop.txt').exists():
+                    print("🛑 Stop during delay!")
+                    break
+                await asyncio.sleep(1)
+            if Path('stop.txt').exists():
+                break
 
     # Final status
-    summary_text = (
-        f"**✅ Reporting Complete!**\n\n"
+    stopped = Path('stop.txt').exists()
+    final_text = (
+        f"{'🛑 **STOPPED!**' if stopped else '✅ **COMPLETE!**'}\n\n"
         f"🎯 Target: @{config['Target']}\n"
-        f"📝 Crime: `{crime_message[:60]}...`\n"
-        f"📊 Total: {total_reports} reports\n"
+        f"📝 Crime: {crime_message[:50]}...\n"
         f"✅ Success: {total_success}\n"
         f"❌ Failed: {total_failed}\n"
-        f"⏱️ Delay: 10 seconds"
+        f"📊 Total Rounds: {round_num + 1}"
     )
     
-    await ms.edit_text(text=summary_text)
+    await status_msg.edit_text(text=final_text)
 
     with open('report.txt', 'a') as log_file:
-        log_file.write(f"\n=== Report Session Ended at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
-        log_file.write(f"Total: {total_reports} | Success: {total_success} | Failed: {total_failed}\n\n")
+        log_file.write(f"\n=== {'STOPPED' if stopped else 'COMPLETED'} at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+        log_file.write(f"Success: {total_success} | Failed: {total_failed}\n\n")
 
-    await msg.reply_text(text=summary_text)
+    await msg.reply_text(text=final_text)
     
     if os.path.exists('report.txt'):
         await bot.send_document(
@@ -243,6 +301,9 @@ async def CHOICE_OPTION(bot, msg, number):
             reply_to_message_id=msg.id
         )
         os.remove('report.txt')
+    
+    if os.path.exists('stop.txt'):
+        os.remove('stop.txt')
 
 
 @Client.on_message(filters.private & filters.user(Config.OWNER) & filters.command('report'))
@@ -258,6 +319,18 @@ async def handle_report(bot: Client, cmd: Message):
         text=Txt.REPORT_CHOICE,
         reply_to_message_id=cmd.id,
         reply_markup=ReplyKeyboardMarkup(CHOICE, resize_keyboard=True)
+    )
+
+
+# 🛑 STOP COMMAND
+@Client.on_message(filters.private & filters.user(Config.OWNER) & filters.command('stop'))
+async def stop_report(bot: Client, cmd: Message):
+    """Stop the ongoing report process"""
+    with open('stop.txt', 'w') as f:
+        f.write('stop')
+    await cmd.reply_text(
+        text="**🛑 Stop signal sent!**\n\nReporting will stop after current account.\n\nUse /report to start again.",
+        reply_to_message_id=cmd.id
     )
 
 
